@@ -13,11 +13,12 @@
 4. [docker logs](#docker-logs)
 5. [docker exec](#docker-exec)
 6. [docker images](#docker-images)
-7. [docker pull / push](#docker-pull--push)
-8. [docker rm / rmi](#docker-rm--rmi)
-9. [docker compose](#docker-compose)
-10. [docker network](#docker-network)
-11. [docker volume](#docker-volume)
+7. [docker tag](#docker-tag)
+8. [docker pull / push](#docker-pull--push)
+9. [docker rm / rmi](#docker-rm--rmi)
+10. [docker compose](#docker-compose)
+11. [docker network](#docker-network)
+12. [docker volume](#docker-volume)
 
 ---
 
@@ -292,6 +293,86 @@ docker images nginx
 
 ---
 
+## docker tag
+
+Create a tag for an image (typically used before pushing to a registry).
+
+**Basic syntax:** `docker tag SOURCE_IMAGE[:TAG] TARGET_IMAGE[:TAG]`
+
+**Purpose:** The `docker tag` command creates a new tag/alias for an existing image. This is essential when you want to push an image to a registry with a specific name format (e.g., `username/image:tag` for Docker Hub or `registry.example.com/image:tag` for private registries).
+
+**How it works:** It doesn't create a copy of the image—it just creates a new reference (tag) pointing to the same image.
+
+| Flag     | Description                                                      | Notes                         |
+| -------- | ---------------------------------------------------------------- | ----------------------------- |
+| No flags | `docker tag` has no flags, only accepts two positional arguments | Source and target image names |
+
+**Common usage:**
+
+```bash
+# Tag local image for Docker Hub
+docker tag myapp:latest username/myapp:latest
+docker tag myapp:latest username/myapp:v1.0.0
+
+# Tag with multiple versions
+docker tag myapp:latest username/myapp:latest
+docker tag myapp:latest username/myapp:1.0
+docker tag myapp:latest username/myapp:1.0.5
+
+# Tag for private registry
+docker tag myapp:latest registry.example.com/myapp:latest
+docker tag myapp:latest registry.example.com/project/myapp:v1.0
+
+# Tag for AWS ECR
+docker tag myapp:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/myapp:latest
+
+# Tag for GitHub Container Registry
+docker tag myapp:latest ghcr.io/username/myapp:latest
+
+# Tag using image ID
+docker tag abc123def456 username/myapp:latest
+```
+
+**Typical workflow before pushing:**
+
+```bash
+# 1. Build the image
+docker build -t myapp:latest .
+
+# 2. Tag it for your Docker Hub account
+docker tag myapp:latest username/myapp:latest
+
+# 3. (Optional) Add version tag
+docker tag myapp:latest username/myapp:v1.0.0
+
+# 4. Push to Docker Hub
+docker push username/myapp:latest
+docker push username/myapp:v1.0.0
+```
+
+**Pro tip:** You can also tag during build to skip the separate tag step:
+
+```bash
+# Build and tag in one command
+docker build -t username/myapp:latest -t username/myapp:v1.0.0 .
+
+# Then push directly
+docker push username/myapp:latest
+docker push username/myapp:v1.0.0
+```
+
+**Check your Docker username:**
+
+```bash
+# View your Docker config to see logged-in username
+cat ~/.docker/config.json
+
+# Or decode the auth token to see username:password
+cat ~/.docker/config.json | grep auth | awk '{print $2}' | tr -d ',"' | base64 -d
+```
+
+---
+
 ## docker pull / push
 
 Pull or push an image from/to a registry.
@@ -300,6 +381,12 @@ Pull or push an image from/to a registry.
 
 - `docker pull [OPTIONS] NAME[:TAG]`
 - `docker push [OPTIONS] NAME[:TAG]`
+
+**Note:** Before pushing an image, you typically need to:
+
+1. Log in to the registry: `docker login`
+2. Tag the image with the registry format: `docker tag myapp:latest username/myapp:latest` (see [docker tag](#docker-tag) section above)
+3. Push the tagged image: `docker push username/myapp:latest`
 
 | Flag                      | Long Form    | Description                                      | Example                                           |
 | ------------------------- | ------------ | ------------------------------------------------ | ------------------------------------------------- |
@@ -320,10 +407,18 @@ docker pull nginx:1.24-alpine
 # Pull all tags
 docker pull -a nginx
 
-# Push to Docker Hub
+# Complete push workflow to Docker Hub
+docker login
+docker tag myapp:latest username/myapp:latest
 docker push username/myapp:latest
 
+# Push with multiple tags
+docker tag myapp:latest username/myapp:v1.0.0
+docker push username/myapp:latest
+docker push username/myapp:v1.0.0
+
 # Push to private registry
+docker tag myapp:latest registry.example.com/myapp:v1.0
 docker push registry.example.com/myapp:v1.0
 ```
 
