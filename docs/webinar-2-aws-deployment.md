@@ -3,7 +3,7 @@
 **Duration:** 60 minutes  
 **Level:** Intermediate  
 **Prerequisite:** Complete [Webinar 1 — Docker + CI/CD](./webinar-1-docker-cicd.md) first  
-**Demo project:** `api/` and `web/` from this repository
+**Demo project:** `web/` from this repository
 
 ---
 
@@ -43,11 +43,10 @@ Internet
 │  │     Nginx (proxy)      │  │
 │  └──────────┬─────────────┘  │
 │             │                │
-│    ┌────────┴────────┐       │
-│    ▼                 ▼       │
-│  api:3000        web:5173    │
-│  (Docker)        (Docker)    │
-└──────────────────────────────┘
+│             ▼                │
+│        web:5173              │
+│        (Docker)              │
+└─────────────│────────────────┘
          │
    Elastic IP (static)
 ```
@@ -82,12 +81,12 @@ A **Security Group** is a firewall that controls what traffic reaches your EC2 i
 
 Go to **EC2** → **Security Groups** → select the one attached to your instance → **Edit inbound rules**:
 
-| Type       | Protocol | Port | Source    | Why                                           |
-| ---------- | -------- | ---- | --------- | --------------------------------------------- |
-| SSH        | TCP      | 22   | Your IP   | Remote access to the server                   |
-| HTTP       | TCP      | 80   | 0.0.0.0/0 | Web traffic (Nginx will redirect to 443)      |
-| HTTPS      | TCP      | 443  | 0.0.0.0/0 | Secure web traffic                            |
-| Custom TCP | TCP      | 3000 | 0.0.0.0/0 | API (temporary, remove after Nginx is set up) |
+| Type       | Protocol | Port | Source    | Why                                               |
+| ---------- | -------- | ---- | --------- | ------------------------------------------------- |
+| SSH        | TCP      | 22   | Your IP   | Remote access to the server                       |
+| HTTP       | TCP      | 80   | 0.0.0.0/0 | Web traffic (Nginx will redirect to 443)          |
+| HTTPS      | TCP      | 443  | 0.0.0.0/0 | Secure web traffic                                |
+| Custom TCP | TCP      | 5173 | 0.0.0.0/0 | Web app (temporary, remove after Nginx is set up) |
 
 > **Best practice:** Restrict port 22 to your own IP address. Never leave SSH open to `0.0.0.0/0` in production.
 
@@ -158,17 +157,17 @@ docker compose version
 
 ```bash
 # Pull the images we pushed in Part 1
-docker pull YOUR_DOCKERHUB_USERNAME/api:latest
+docker pull YOUR_DOCKERHUB_USERNAME/web:latest
 
-# Run the API container
+# Run the web container
 docker run -d \
-  -p 3000:3000 \
-  --name api \
+  -p 5173:5173 \
+  --name web \
   --restart unless-stopped \
-  YOUR_DOCKERHUB_USERNAME/api:latest
+  YOUR_DOCKERHUB_USERNAME/web:latest
 
 # Test it works
-curl http://localhost:3000/health
+curl http://localhost:5173
 ```
 
 ---
@@ -224,10 +223,10 @@ Test: open `http://YOUR_ELASTIC_IP` in a browser — you should see the Nginx we
 
 ### 5.2 — Configure Nginx as a Reverse Proxy
 
-Create a new Nginx config for your API:
+Create a new Nginx config for your web app:
 
 ```bash
-sudo nano /etc/nginx/sites-available/api
+sudo nano /etc/nginx/sites-available/web
 ```
 
 Paste the following (replace `YOUR_DOMAIN` with your actual domain, or use your Elastic IP):
@@ -238,7 +237,7 @@ server {
     server_name YOUR_DOMAIN;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:5173;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -251,7 +250,7 @@ server {
 Enable the config:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/api /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/web /etc/nginx/sites-enabled/
 
 # Test the config for syntax errors
 sudo nginx -t
@@ -308,7 +307,7 @@ sudo certbot renew --dry-run
 
 Update your GitHub Actions CD workflow to SSH into the EC2 instance and pull the latest image after pushing to Docker Hub.
 
-Add these steps to `.github/workflows/api-cd.yml` after the build-and-push step:
+Add these steps to `.github/workflows/web-cd.yml` after the build-and-push step:
 
 ```yaml
 - name: Deploy to EC2
@@ -318,14 +317,14 @@ Add these steps to `.github/workflows/api-cd.yml` after the build-and-push step:
     username: ubuntu
     key: ${{ secrets.EC2_SSH_KEY }}
     script: |
-      docker pull ${{ secrets.DOCKERHUB_USERNAME }}/api:latest
-      docker stop api || true
-      docker rm api || true
+      docker pull ${{ secrets.DOCKERHUB_USERNAME }}/web:latest
+      docker stop web || true
+      docker rm web || true
       docker run -d \
-        -p 3000:3000 \
-        --name api \
+        -p 5173:5173 \
+        --name web \
         --restart unless-stopped \
-        ${{ secrets.DOCKERHUB_USERNAME }}/api:latest
+        ${{ secrets.DOCKERHUB_USERNAME }}/web:latest
 ```
 
 Add these additional GitHub Secrets:
@@ -372,10 +371,10 @@ Add these additional GitHub Secrets:
 ssh -i your-key.pem ubuntu@YOUR_ELASTIC_IP
 
 # Docker on EC2
-docker pull USERNAME/api:latest
-docker run -d -p 3000:3000 --name api --restart unless-stopped USERNAME/api:latest
+docker pull USERNAME/web:latest
+docker run -d -p 5173:5173 --name web --restart unless-stopped USERNAME/web:latest
 docker ps
-docker logs -f api
+docker logs -f web
 
 # Nginx
 sudo nginx -t

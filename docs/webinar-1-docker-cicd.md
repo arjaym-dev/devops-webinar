@@ -2,7 +2,7 @@
 
 **Duration:** 40–60 minutes  
 **Level:** Beginner–Intermediate  
-**Demo project:** `api/` (Node.js + TypeScript) and `web/` (React + Vite)
+**Demo project:** `web/` (React + Vite)
 
 ---
 
@@ -31,12 +31,11 @@ DevOps bridges the gap between **development** (writing code) and **operations**
 
 ### This Session's Project
 
-We will use two real apps already in this repository:
+We will use a real app already in this repository:
 
-- `api/` — A Node.js + TypeScript REST API with health-check endpoints
-- `web/` — A React + Vite frontend
+- `web/` — A React + Vite frontend with hot-reload development
 
-Both have `Dockerfile`s ready to go.
+It has a `Dockerfile` ready to go.
 
 ---
 
@@ -56,35 +55,35 @@ Key terms:
 
 ### 2.1 — Build a Docker Image
 
-A `Dockerfile` describes how to build the image. Let's build the `api` image.
+A `Dockerfile` describes how to build the image. Let's build the `web` image.
 
 ```bash
-# Navigate to the api directory
-cd api
+# Navigate to the web directory
+cd web
 
 # Build the image and tag it
-docker build -t api:latest .
+docker build -t web:latest .
 ```
 
-> **What's happening?** Docker reads `Dockerfile`, installs dependencies, compiles TypeScript, and produces a production image.
+> **What's happening?** Docker reads `Dockerfile`, installs dependencies, builds the Vite app, and produces a production image.
 
 ---
 
 ### 2.2 — Run a Container
 
 ```bash
-# Run the container in detached mode (-d), expose port 3000
-docker run -d -p 3000:3000 --name api api:latest
+# Run the container in detached mode (-d), expose port 5173
+docker run -d -p 5173:5173 --name web web:latest
 ```
 
 Test it is running:
 
 ```bash
-curl http://localhost:3000/health
-# Expected: { "status": "ok", "timestamp": "..." }
-
-curl http://localhost:3000/ping
-# Expected: { "message": "pong" }
+# Open in browser
+open http://localhost:5173
+# Or use curl to check if the server responds
+curl http://localhost:5173
+# Expected: HTML content of your React app
 ```
 
 ---
@@ -108,10 +107,10 @@ docker images
 
 ```bash
 # Print all logs from the container
-docker logs api
+docker logs web
 
 # Stream logs in real-time (follow mode)
-docker logs -f api
+docker logs -f web
 ```
 
 > **Tip:** Use `Ctrl+C` to stop following logs without stopping the container.
@@ -122,19 +121,19 @@ docker logs -f api
 
 ```bash
 # Stop the running container
-docker stop api
+docker stop web
 
 # Remove the stopped container
-docker rm api
+docker rm web
 
 # One-liner: stop and remove
-docker rm -f api
+docker rm -f web
 ```
 
 Remove an image:
 
 ```bash
-docker rmi api:latest
+docker rmi web:latest
 ```
 
 ---
@@ -143,7 +142,7 @@ docker rmi api:latest
 
 Managing individual `docker run` commands gets tedious. **Docker Compose** lets you define your services in a single `docker-compose.yml` file.
 
-Open `api/docker-compose.yml` and walk through it:
+Open `web/docker-compose.yml` and walk through it:
 
 - `build` — points to the `Dockerfile`
 - `ports` — maps host port to container port
@@ -175,16 +174,16 @@ Docker Hub is a public registry where you can store and share images.
 docker login
 
 # Tag your local image with your Docker Hub username
-docker tag api:latest YOUR_DOCKERHUB_USERNAME/api:latest
+docker tag web:latest YOUR_DOCKERHUB_USERNAME/web:latest
 
 # Push the image to Docker Hub
-docker push YOUR_DOCKERHUB_USERNAME/api:latest
+docker push YOUR_DOCKERHUB_USERNAME/web:latest
 ```
 
 Anyone can now pull your image with:
 
 ```bash
-docker pull YOUR_DOCKERHUB_USERNAME/api:latest
+docker pull YOUR_DOCKERHUB_USERNAME/web:latest
 ```
 
 ---
@@ -202,22 +201,22 @@ GitHub Actions uses **workflow files** stored in `.github/workflows/` to define 
 
 ### 3.1 — CI Pipeline
 
-**Goal:** On every push to `main` (or a PR), install dependencies, build TypeScript, and confirm the build succeeds.
+**Goal:** On every push to `main` (or a PR), install dependencies, build the Vite app, and confirm the build succeeds.
 
-Create `.github/workflows/api-ci.yml`:
+Create `.github/workflows/web-ci.yml`:
 
 ```yaml
-name: API CI
+name: Web CI
 
 on:
   push:
     branches: [main]
     paths:
-      - "api/**"
+      - "web/**"
   pull_request:
     branches: [main]
     paths:
-      - "api/**"
+      - "web/**"
 
 jobs:
   build:
@@ -230,20 +229,20 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
-          cache-dependency-path: api/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Install dependencies
-        working-directory: api
+        working-directory: web
         run: npm ci
 
-      - name: Build TypeScript
-        working-directory: api
+      - name: Build Vite app
+        working-directory: web
         run: npm run build
 ```
 
-> **What's `paths:`?** It tells GitHub Actions to only run this workflow when files inside `api/` change — so a change to `web/` does not trigger an API build.
+> **What's `paths:`?** It tells GitHub Actions to only run this workflow when files inside `web/` change — so a change to other directories does not trigger a build.
 
 ---
 
@@ -251,16 +250,16 @@ jobs:
 
 **Goal:** After CI passes on `main`, build a Docker image and push it to Docker Hub.
 
-Create `.github/workflows/api-cd.yml`:
+Create `.github/workflows/web-cd.yml`:
 
 ```yaml
-name: API CD
+name: Web CD
 
 on:
   push:
     branches: [main]
     paths:
-      - "api/**"
+      - "web/**"
 
 jobs:
   deploy:
@@ -280,11 +279,11 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./api
+          context: ./web
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/api:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/api:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/web:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/web:${{ github.sha }}
 ```
 
 #### Setting up GitHub Secrets
