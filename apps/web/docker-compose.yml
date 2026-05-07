@@ -1,7 +1,8 @@
 services:
   web:
     build: .
-    container_name: web
+    container_name: web-dev
+    image: web
     ports:
-      - "9999:9999"
+      - "3000:9999"
     restart: unless-stopped
