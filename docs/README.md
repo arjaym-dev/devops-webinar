@@ -15,6 +15,17 @@ All demos use the `api/` (Node.js + TypeScript) and `web/` (React + Vite) apps i
 
 ---
 
+## Tagalog/Filipino Translations
+
+Para sa mga Filipino participants, available ang mga webinar materials sa Tagalog:
+
+- **[Webinar 1 — Docker + CI/CD](./tagalog/webinar-1-docker-cicd.md)** (Tagalog)
+- **[Webinar 2 — AWS Deployment](./tagalog/webinar-2-aws-deployment.md)** (Tagalog)
+
+All technical commands and code remain in English to maintain consistency with industry standards.
+
+---
+
 ## Prerequisites
 
 Before attending, make sure you have the following installed and set up:
